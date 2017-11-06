@@ -60,13 +60,16 @@ class CCMediaController():
         """ get the device ip address """
         
         host = None
-        
+        dummy = None
+
         is_ip_addr = device_name is not None and re.match( "[0-9]+.[0-9]+.[0-9]+.[0-9]+$", device_name) is not None
         
         if is_ip_addr:
             host = device_name
             try:
-                print "ip_addr:", host, "device name:", cc_device_finder.get_device_name(host)
+                #print "ip_addr:", host.encode('utf-8'), "device name:", cc_device_finder.get_device_name(host).encode('utf-8')
+                print >> sys.stderr, "ip_addr:", host.encode('utf-8'), "device name:", cc_device_finder.get_device_name(host).encode('utf-8')
+
             except socket.error:
                 sys.exit("No Chromecast found on ip:" + host)
         else:
@@ -74,8 +77,8 @@ class CCMediaController():
             if host is None:
                 sys.exit("No Chromecast found on the network")
                 
-            print "device name:", name    
-            
+            #print "device name:", name    
+            print >> sys.stderr, "device name:", name 
         return host
         
         
@@ -340,7 +343,7 @@ class CCMediaController():
         self.get_receiver_status()
         
         if self.receiver_app_status is None:
-            print "No media player app running"
+            print >> sys.stderr, "No media player app running"
             self.close_socket()
             return      
         
@@ -372,9 +375,9 @@ class CCMediaController():
         self.get_receiver_status()
         
         if self.receiver_app_status is not None:   
-            transport_id = str(self.receiver_app_status['transportId']) 
-            self.connect(transport_id)
-            self.get_media_status()
+        	transport_id = str(self.receiver_app_status['transportId']) 
+        	self.connect(transport_id)
+        	self.get_media_status()
         
         application_list = []
         if self.current_applications is not None:
@@ -415,16 +418,22 @@ class CCMediaController():
     def pause(self):
         """ pause """
         self.control("PAUSE") 
-        
             
     def play(self):
         """ unpause """
         self.control("PLAY")   
-              
-
+        
     def stop(self):
         """ stop """
-        self.control("STOP")         
+        self.control("STOP")
+        self.connect("receiver-0")
+
+        data = {"type":"STOP"}
+        namespace = "urn:x-cast:com.google.cast.receiver"
+        self.send_msg_with_response(namespace, data)  
+        
+        self.close_socket() 
+         
         
         
         
@@ -451,7 +460,18 @@ class CCMediaController():
         self.close_socket() 
         
         
+    def get_volume_ext(self):
+        """ get the current volume level """
+
+        self.get_status()
         
+        vol = None
+        
+        if self.volume_status is not None:
+            vol = self.volume_status.get('level', None)
+                
+        return vol
+    
     def get_volume(self):
         """ get the current volume level """
         self.get_status()

@@ -405,7 +405,7 @@ def get_mimetype(filename, ffprobe_cmd=None):
             
             
 def play(filename, transcode=False, transcoder=None, transcode_options=None, transcode_input_options=None,
-         transcode_bufsize=0, device_name=None, server_port=None,
+         transcode_bufsize=0, device_name=None, server_ip=None, server_port=None, server_external_port=None,
          subtitles=None, subtitles_port=None, subtitles_language=None):
     """ play a local file or transcode from a file or URL and stream to the chromecast """
     
@@ -434,6 +434,9 @@ def play(filename, transcode=False, transcoder=None, transcode_options=None, tra
 
     status = cast.get_status()
     webserver_ip = status['client'][0]
+    
+    if server_ip is None:
+	server_ip = webserver_ip
     
     print "local ip address:", webserver_ip
         
@@ -473,11 +476,14 @@ def play(filename, transcode=False, transcoder=None, transcode_options=None, tra
         
     server = BaseHTTPServer.HTTPServer((webserver_ip, port), req_handler)
     
+    if server_external_port is None:
+    	server_external_port = server.server_port
+
     thread = Thread(target=server.handle_request)
     thread.start()
 
 
-    url = "http://%s:%s?%s" % (webserver_ip, str(server.server_port), urllib.quote_plus(filename, "/"))
+    url = "http://%s:%s?%s" % (server_ip, str(server_external_port), urllib.quote_plus(filename, "/"))
 
     print "URL & content-type: ", url, req_handler.content_type
 
@@ -636,6 +642,9 @@ def stop(device_name=None):
     """ stop playback and quit the media player app on the chromecast """
     CCMediaController(device_name=device_name).stop()
 
+def get_volume(device_name=None):
+    """ print the status of the chromecast device """
+    print CCMediaController(device_name=device_name).get_volume()
 
 def get_status(device_name=None):
     """ print the status of the chromecast device """
@@ -725,10 +734,14 @@ def run():
     device_name = get_named_arg_value("-devicename", args)
     
     # optional transcoder parm. if not specified, ffmpeg will be used, if installed, otherwise avconv.
-    transcoder = get_named_arg_value("-transcoder", args)    
+    transcoder = get_named_arg_value("-transcoder", args)
+
+    server_ip = get_named_arg_value("-server_ip", args) 
     
     # optional server port parm. if not specified, a random available port will be used
-    server_port = get_named_arg_value("-port", args)     
+    server_port = get_named_arg_value("-port", args)
+
+    server_external_port = get_named_arg_value("-external_port", args)     
     
     # optional transcode options parm. if specified, these options will be passed to the transcoder to be applied to the output
     transcode_options = get_named_arg_value("-transcodeopts", args)     
@@ -764,6 +777,9 @@ def run():
     elif args[0] == "-status":
         get_status(device_name=device_name)
 
+    elif args[0] == "-getvol":
+        get_volume(device_name=device_name)
+
     elif args[0] == "-setvol":
         set_volume(float(args[1]), device_name=device_name)
 
@@ -779,7 +795,7 @@ def run():
     elif args[0] == "-transcode":    
         arg2 = args[1]  
         play(arg2, transcode=True, transcoder=transcoder, transcode_options=transcode_options, transcode_input_options=transcode_input_options, transcode_bufsize=transcode_bufsize,
-             device_name=device_name, server_port=server_port, subtitles=subtitles, subtitles_port=subtitles_port,
+             device_name=device_name, server_ip=server_ip, server_port=server_port, server_external_port=server_external_port, subtitles=subtitles, subtitles_port=subtitles_port,
              subtitles_language=subtitles_language)
         
     elif args[0] == "-playurl":    
@@ -790,7 +806,7 @@ def run():
         list_devices()
             
     else:
-        play(args[0], device_name=device_name, server_port=server_port, subtitles=subtitles,
+        play(args[0], device_name=device_name, server_ip=server_ip, server_port=server_port, server_external_port=server_external_port, subtitles=subtitles,
              subtitles_port=subtitles_port, subtitles_language=subtitles_language)
         
             
